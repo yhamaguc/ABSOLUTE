@@ -56,6 +56,24 @@ COPY v1.5/ /xchip/tcga/Tools/absolute/releases/v1.5/
 COPY src/*.py /usr/local/bin/
 COPY src/*.R /usr/local/bin/
 
+# Entry points as commands on PATH.  The scripts carry no shebang, so they can
+# only be run as `Rscript <file>` / `python <file>` -- which is how wolF invokes
+# them, but not how an apptainer shim does (`apptainer exec <sif> <command>`).
+# A shebang line is a comment to both R and python, so prepending one keeps the
+# explicit-interpreter form working.
+RUN set -eu; \
+    for f in /xchip/tcga/Tools/absolute/releases/v1.5/run/ABSOLUTE_cli_start.R \
+             /xchip/tcga/Tools/absolute/releases/v1.5/run/ABSOLUTE_extract_cli_start.R \
+             /xchip/tcga/Tools/absolute/releases/v1.5/run/ABSOLUTE_cli_review.R; do \
+      sed -i '1i #!/usr/bin/env Rscript' "$f"; \
+      chmod +x "$f"; \
+      ln -sf "$f" /usr/local/bin/"$(basename "$f")"; \
+    done; \
+    sed -i '1i #!/usr/bin/env Rscript' /usr/local/bin/get_CN_Absolute.Phylogic_SinglePatientTiming.R; \
+    chmod +x /usr/local/bin/get_CN_Absolute.Phylogic_SinglePatientTiming.R; \
+    sed -i '1i #!/usr/bin/env python3' /usr/local/bin/split_maf_indel_snp.py; \
+    chmod +x /usr/local/bin/split_maf_indel_snp.py
+
 # Smoke test.  The CLI entry points source() every .R in the library directory
 # at start-up, so replaying that here turns an R-version incompatibility into a
 # build failure instead of a run-time one.  The dir() call is kept identical to
@@ -71,6 +89,17 @@ RUN Rscript -e 'suppressPackageStartupMessages({ \
 
 RUN python /usr/local/bin/split_maf_indel_snp.py --help > /dev/null && \
     echo "python entry point OK"
+
+# Every entry point must also resolve and run as a bare command on PATH.
+RUN set -eu; \
+    for cmd in ABSOLUTE_cli_start.R ABSOLUTE_extract_cli_start.R \
+               ABSOLUTE_cli_review.R \
+               get_CN_Absolute.Phylogic_SinglePatientTiming.R \
+               split_maf_indel_snp.py; do \
+      command -v "$cmd" > /dev/null || { echo "not on PATH: $cmd" >&2; exit 1; }; \
+      "$cmd" --help > /dev/null || { echo "cannot exec: $cmd" >&2; exit 1; }; \
+    done; \
+    echo "PATH entry points OK"
 
 # clear the build directory
 RUN rm -rf /build/*
