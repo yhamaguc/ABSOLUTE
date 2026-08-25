@@ -37,6 +37,14 @@ Once a candidate solution is chosen, the "extractor" script (`ABSOLUTE_extract_c
     - Contains purities and ploidies. Analyst can edit this file with manual annotations in order to
 
 
+---
+
+# Addendum: container build
+
+> Everything above this line is unmodified upstream text from
+> [`getzlab/ABSOLUTE`](https://github.com/getzlab/ABSOLUTE). Everything below
+> was added in this fork.
+
 ## Building the container
 
 ```
